@@ -1,0 +1,139 @@
+require("dotenv").config()
+
+const express = require('express');
+const path = require('path');
+const bcrypt = require('bcrypt');
+const validator = require("email-validator");
+const mongoose = require("mongoose");
+const toDoTask = require("./models/toDoTask");
+const user = require("./models/user");
+let loggedUser = "";
+
+const app = express();
+const host = process.env.HOST;
+const port = process.env.PORT;
+
+app.set("view engine", "ejs");
+
+app.use(express.urlencoded({
+        extended: true
+}));
+
+
+mongoose.connect(process.env.MONGO_URL, {
+        useNewUrlParser: true
+}, () => {
+        console.log("Database connection established");
+        app.listen(3000, () => console.log(`Server Started on http://${host}:${port}`));
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (request, response) => {
+        response.render('login.ejs');
+});
+
+app.get('/create', (request, response) => {
+        renderCreateUserEJS(response, "")
+});
+
+app.post("/auth", async (request, response) => {
+        let authEmail = request.body.email;
+        let authPassword = request.body.password;
+
+        let authUser = await user.findOne({
+                email: authEmail
+        });
+        if (authUser) {
+                let hashedPassword = await bcrypt.compare(authPassword, authUser.password);
+                if (hashedPassword) {
+                        loggedUser = authUser.username;
+                        renderTasks(response, "");
+                }
+
+        } else {
+                renderCreateUserEJS(response, "")
+        }
+});
+
+app.post("/register", async (request, response) => {
+        const salt = await bcrypt.genSalt(10);
+
+        let registerUsername = request.body.username;
+        let registerPassword = await bcrypt.hash(request.body.password, salt);
+        let registerEmail = "";
+
+        if (validator.validate(request.body.email)) {
+                registerEmail = request.body.email;
+        } else {
+                renderCreateUserEJS(response, "Email was not valid!")
+        }
+
+        let registerUser = new user({
+                username: registerUsername,
+                password: registerPassword,
+                email: registerEmail
+        });
+
+        let authUser = await user.findOne({
+                email: registerEmail
+        });
+
+        if (!authUser) {
+                try {
+                        await registerUser.save();
+                        loggedUser = registerUsername;
+                        renderTasks(response, "");
+                } catch (err) {
+                        renderCreateUserEJS(response, "User was not created!")
+                }
+        } else {
+                renderCreateUserEJS(response, "User already exists!")
+        }
+
+
+});
+
+app.post("/addToDo", async (request, response) => {
+        let toDoContent = request.body.content;
+        let toDoCreator = loggedUser;
+        const createToDo = new toDoTask({
+                content: toDoContent,
+                creator: toDoCreator
+        });
+
+        try {
+                await createToDo.save();
+                renderTasks(response, "");
+        } catch (err) {
+                renderTasks(response, "Task was not created!");
+        }
+});
+
+app.route("/remove/:id").get((request, response) => {
+        const id = request.params.id;
+        toDoTask.findByIdAndRemove(id, err => {
+                if (err)
+                        return response.send(500, err);
+
+                renderTasks(response, "");
+        });
+});
+
+function renderCreateUserEJS(response, message) {
+        response.render("create.ejs", {
+                message: message
+        });
+}
+
+function renderTasks(response, message) {
+        toDoTask.find({
+                'creator': loggedUser
+        }, (err, tasks) => {
+                response.render("todo.ejs", {
+                        result: tasks,
+                        username: loggedUser,
+                        message: message
+                });
+        });
+}
