@@ -9,7 +9,7 @@
     <h2>Hello <%= username %>!</h2>
     <div class="todo">
       <form action="/addToDo" method="POST" class="todo-header">
-        <input type="text" name="content" /><button type="submit">
+        <input type="text" name="content" required/><button type="submit">
           <span class="fas fa-plus"></span>
         </button>
       </form>

@@ -7,6 +7,12 @@ const validator = require("email-validator");
 const mongoose = require("mongoose");
 const toDoTask = require("./models/toDoTask");
 const user = require("./models/user");
+const {
+        request
+} = require("http");
+const {
+        response
+} = require("express");
 let loggedUser = "";
 
 const app = express();
@@ -108,6 +114,26 @@ app.post("/addToDo", async (request, response) => {
         } catch (err) {
                 renderTasks(response, "Task was not created!");
         }
+});
+
+app.route("/edit/:id").get((request, response) => {
+        const id = request.params.id;
+        toDoTask.find({}, (err, tasks) => {
+                response.render("todoUpdate.ejs", {
+                        todoTasks: tasks,
+                        taskId: id
+                });
+        });
+}).post((request, response) => {
+        const id = request.params.id;
+        toDoTask.findByIdAndUpdate(id, {
+                content: request.body.content
+        }, err => {
+                if (err)
+                        return response.send(500, err);
+
+                renderTasks(response, "");
+        });
 });
 
 app.route("/remove/:id").get((request, response) => {
