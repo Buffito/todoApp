@@ -1,6 +1,5 @@
 const bcrypt = require('bcrypt');
 const validator = require("email-validator");
-const bodyParser = require('body-parser')
 const toDoTask = require('../models/toDoTask');
 const user = require('../models/user');
 
